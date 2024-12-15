@@ -9,6 +9,7 @@ import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
+import org.jetbrains.kotlin.ir.ObsoleteDescriptorBasedAPI
 import org.jetbrains.kotlin.ir.builders.declarations.buildFun
 import org.jetbrains.kotlin.ir.builders.irBlockBody
 import org.jetbrains.kotlin.ir.builders.irReturn
@@ -42,6 +43,7 @@ internal class CiteElementTransformer(
 	private val messageCollector: MessageCollector,
 	private val pluginContext: IrPluginContext,
 ) : IrElementTransformerVoidWithContext() {
+	private val moduleName = FqName("com.jakewharton.cite.<get-__MODULE__>")
 	private val fileName = FqName("com.jakewharton.cite.<get-__FILE__>")
 	private val typeName = FqName("com.jakewharton.cite.<get-__TYPE__>")
 	private val memberName = FqName("com.jakewharton.cite.<get-__MEMBER__>")
@@ -129,6 +131,13 @@ internal class CiteElementTransformer(
 
 	private fun maybeReplaceCitation(source: IrExpression, owner: IrSimpleFunction): IrConst? {
 		when (owner.kotlinFqName) {
+			moduleName -> {
+				@OptIn(ObsoleteDescriptorBasedAPI::class)
+				pluginContext.moduleDescriptor.stableName?.let { name ->
+					return source.swapConstString(name.asStringStripSpecialMarkers())
+				}
+				source.reportError("No module detected! Report bug at https://github.com/JakeWharton/cite/issues/new")
+			}
 			fileName -> {
 				val visitingFile = visitingFile
 				if (visitingFile != null) {
